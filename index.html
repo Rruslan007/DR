@@ -164,6 +164,14 @@
     white-space:pre-wrap;
   }
 
+  /* курсор при посимвольной печати */
+  .cursor::after{
+    content:"▌";
+    animation:blink .9s steps(1) infinite;
+    color:var(--green);
+  }
+  @keyframes blink{50%{opacity:0;}}
+
   .photoBlock{
     margin:14px 0 22px;
     position:relative;
@@ -183,7 +191,7 @@
     max-height:60vh;object-fit:contain;
     background:#0a0a0a;
   }
-  /* фото Funny повёрнуто на 90° (низ справа, верх слева) */
+  /* горизонтальное фото: поворот на 90° */
   .photoBlock img.rot90{
     transform:rotate(90deg);
     transform-origin:center center;
@@ -473,39 +481,58 @@
     }
   });
 
-  /* ---------- Режим 1: поздравление (как в первом коде) ---------- */
+  /* ---------- Режим 1: поздравление с посимвольной печатью ---------- */
   const GREETING = [
     {text:"С днём рождения, самая лучшая подруга!)"},
     {text:"Желаю тебе крепкого здоровья, благополучия, моря счастья. Оставайся такой же красоткой.", photo:'beautiful2', alt:'beautiful2'},
     {text:"Желаю тебе всегда быть на позитиве, как девочка на переднем плане, а не как «злой пацан» на заднем плане.", photo:'funny', alt:'funny', rot:true},
-    {text:"Ну и напоследок: будь всегда уверенной в себе, пусть улыбка всегда остаётся на твоём лице, пусть тебя окружают только верные люди. Желаю тебе учиться на одни пятёрки, кучу-прекучу подарков, слушаться взрослых и не капризничать. Желаю обходить все преграды, чтобы все твои желания всегда исполнялись. Оставайся такой же красоткой и моим львёнком. С днём рождения, подруга, люблю тебя!)", photo:'beautiful', alt:'beautiful'}
+    {text:"Ну и напоследок: будь всегда уверенной в себе, пусть улыбка всегда остаётся на твоём лице, пусть тебя окружают только верные люди. Желаю тебе учиться на одни пятёрки, кучу-прекучу подарков, слушаться взрослых и не капризничать. Желаю обходить все преграды, чтобы все твои желания всегда исполнялись. Оставайся такой же красоткой и моим львёнком. С днём рождения, подруга, люблю тебя!)", photo:'beautiful', alt:'beautiful', rot:true}
   ];
+
+  // медленная посимвольная печать
+  const CHAR_DELAY = 45; // ~22 символа в секунду
+
+  function typeText(text, container, done){
+    const p = document.createElement('p');
+    p.className = 'msg cursor';
+    p.textContent = '> ';
+    container.appendChild(p);
+    termBody.scrollTop = termBody.scrollHeight;
+
+    let i = 0;
+    function tick(){
+      if (i >= text.length){
+        p.classList.remove('cursor');
+        if (done) done();
+        return;
+      }
+      p.textContent += text.charAt(i);
+      i++;
+      termBody.scrollTop = termBody.scrollHeight;
+      typingTimers.push(setTimeout(tick, CHAR_DELAY));
+    }
+    tick();
+  }
 
   function printGreeting(){
     let delay = 250;
     GREETING.forEach(function(block){
       typingTimers.push(setTimeout(function(){
-        addTextMessage(block.text);
-        if (block.photo){
-          typingTimers.push(setTimeout(function(){
-            addPhoto(block.photo, block.alt, block.rot);
-          }, 380));
-        }
+        typeText(block.text, termBody, function(){
+          if (block.photo){
+            typingTimers.push(setTimeout(function(){
+              addPhoto(block.photo, block.alt, block.rot);
+            }, 500));
+          }
+        });
       }, delay));
-      delay += 1500;
+      // пауза между блоками с учётом времени на печать
+      delay += block.text.length * CHAR_DELAY + 900;
     });
-    typingTimers.push(setTimeout(drawSmiley, delay + 800));
+    typingTimers.push(setTimeout(drawSmiley, delay + 1200));
   }
 
-  function addTextMessage(text){
-    const p = document.createElement('p');
-    p.className = 'msg';
-    p.textContent = '> ' + text;
-    termBody.appendChild(p);
-    termBody.scrollTop = termBody.scrollHeight;
-  }
-
-  /* ---------- Режим 2: 10 комплиментов-цитат ---------- */
+  /* ---------- Режим 2: 10 комплиментов-цитат (тоже посимвольно) ---------- */
   const COMPLIMENTS = [
     "«У тебя невероятная красота — она светится изнутри.»",
     "«У тебя самый добрый характер — с тобой тепло и спокойно.»",
@@ -524,17 +551,30 @@
     COMPLIMENTS.forEach(function(text){
       typingTimers.push(setTimeout(function(){
         const q = document.createElement('div');
-        q.className = 'quote';
-        q.textContent = text;
+        q.className = 'quote cursor';
+        q.textContent = '';
         termBody.appendChild(q);
         termBody.scrollTop = termBody.scrollHeight;
+
+        let i = 0;
+        function tick(){
+          if (i >= text.length){
+            q.classList.remove('cursor');
+            return;
+          }
+          q.textContent += text.charAt(i);
+          i++;
+          termBody.scrollTop = termBody.scrollHeight;
+          typingTimers.push(setTimeout(tick, CHAR_DELAY));
+        }
+        tick();
       }, delay));
-      delay += 1400;
+      delay += text.length * CHAR_DELAY + 600;
     });
-    typingTimers.push(setTimeout(drawSmiley, delay + 800));
+    typingTimers.push(setTimeout(drawSmiley, delay + 1000));
   }
 
-  /* ---------- Фото с зелёной рамкой и прогрессом (как в первом коде) ---------- */
+  /* ---------- Фото с зелёной рамкой и прогрессом ---------- */
   function addPhoto(key, alt, rot){
     const wrap = document.createElement('div');
     wrap.className = 'photoBlock loading';
@@ -598,8 +638,6 @@
 
   /* ---------- Смайлик из точек снизу вверх (с улыбкой) ---------- */
   function drawSmiley(){
-    // строки заданы СВЕРХУ ВНИЗ, но выводим их снизу вверх
-    // (последняя строка массива печатается первой)
     const lines = [
       "   ·  ·  ·  ·  ·  ·   ",   // верх контура
       " ·                   · ",
@@ -615,7 +653,7 @@
     termBody.appendChild(pre);
     termBody.scrollTop = termBody.scrollHeight;
 
-    // печатаем снизу вверх: начинаем с последней строки массива
+    // печатаем снизу вверх
     let idx = lines.length - 1;
 
     function step(){
@@ -623,7 +661,6 @@
       const span = document.createElement('span');
       span.className = 'ln';
       span.textContent = lines[idx] + "\n";
-      // вставляем в начало pre, чтобы визуально шло снизу вверх
       pre.insertBefore(span, pre.firstChild);
       termBody.scrollTop = termBody.scrollHeight;
       idx--;
