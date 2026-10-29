@@ -473,7 +473,7 @@
     }
   });
 
-  /* ---------- Режим 1: поздравление (медленнее, x0.5) ---------- */
+  /* ---------- Режим 1: поздравление (как в первом коде) ---------- */
   const GREETING = [
     {text:"С днём рождения, самая лучшая подруга!)"},
     {text:"Желаю тебе крепкого здоровья, благополучия, моря счастья. Оставайся такой же красоткой.", photo:'beautiful2', alt:'beautiful2'},
@@ -481,43 +481,28 @@
     {text:"Ну и напоследок: будь всегда уверенной в себе, пусть улыбка всегда остаётся на твоём лице, пусть тебя окружают только верные люди. Желаю тебе учиться на одни пятёрки, кучу-прекучу подарков, слушаться взрослых и не капризничать. Желаю обходить все преграды, чтобы все твои желания всегда исполнялись. Оставайся такой же красоткой и моим львёнком. С днём рождения, подруга, люблю тебя!)", photo:'beautiful', alt:'beautiful'}
   ];
 
-  // скорость печати x0.5 => интервалы увеличены
   function printGreeting(){
-    let delay = 500;
+    let delay = 250;
     GREETING.forEach(function(block){
       typingTimers.push(setTimeout(function(){
-        typeTextMessage(block.text, 30, function(){
-          if (block.photo){
-            typingTimers.push(setTimeout(function(){
-              addPhoto(block.photo, block.alt, block.rot);
-            }, 700));
-          }
-        });
+        addTextMessage(block.text);
+        if (block.photo){
+          typingTimers.push(setTimeout(function(){
+            addPhoto(block.photo, block.alt, block.rot);
+          }, 380));
+        }
       }, delay));
-      delay += 3000;
+      delay += 1500;
     });
-    // смайлик в конце
-    typingTimers.push(setTimeout(drawSmiley, delay + 1200));
+    typingTimers.push(setTimeout(drawSmiley, delay + 800));
   }
 
-  // посимвольная печать (медленно)
-  function typeTextMessage(text, charDelay, done){
+  function addTextMessage(text){
     const p = document.createElement('p');
     p.className = 'msg';
-    p.textContent = '> ';
+    p.textContent = '> ' + text;
     termBody.appendChild(p);
-    let i = 0;
-    function tick(){
-      if (i >= text.length){
-        if (done) done();
-        return;
-      }
-      p.textContent += text.charAt(i);
-      i++;
-      termBody.scrollTop = termBody.scrollHeight;
-      typingTimers.push(setTimeout(tick, charDelay));
-    }
-    tick();
+    termBody.scrollTop = termBody.scrollHeight;
   }
 
   /* ---------- Режим 2: 10 комплиментов-цитат ---------- */
@@ -544,13 +529,12 @@
         termBody.appendChild(q);
         termBody.scrollTop = termBody.scrollHeight;
       }, delay));
-      // медленно (x0.5)
       delay += 1400;
     });
     typingTimers.push(setTimeout(drawSmiley, delay + 800));
   }
 
-  /* ---------- Фото с зелёной рамкой и прогрессом ---------- */
+  /* ---------- Фото с зелёной рамкой и прогрессом (как в первом коде) ---------- */
   function addPhoto(key, alt, rot){
     const wrap = document.createElement('div');
     wrap.className = 'photoBlock loading';
@@ -594,6 +578,7 @@
       status.textContent = 'ERR';
     }, {once:true});
 
+    // медленная плавная «догрузка» до 92%, потом onload даёт 100%
     let fake = 0;
     fakeTimer = setInterval(function(){
       if (finished) return;
@@ -611,17 +596,18 @@
     termBody.scrollTop = termBody.scrollHeight;
   }
 
-  /* ---------- Смайлик из точек снизу вверх ---------- */
+  /* ---------- Смайлик из точек снизу вверх (с улыбкой) ---------- */
   function drawSmiley(){
-    // простая ASCII-улыбка, рисуем построчно СНИЗУ ВВЕРХ
-    // строки заданы так, что последняя строка массива — верхняя
-    const bottomUpLines = [
-      "   ·  ·  ·  ·  ·   ",      // низ (дуга улыбки)
-      "  ·             ·  ",
-      " ·    ●     ●    · ",      // глаза
-      " ·               · ",
-      "  ·             ·  ",
-      "   ·  ·  ·  ·  ·   "       // верх (замыкание контура)
+    // строки заданы СВЕРХУ ВНИЗ, но выводим их снизу вверх
+    // (последняя строка массива печатается первой)
+    const lines = [
+      "   ·  ·  ·  ·  ·  ·   ",   // верх контура
+      " ·                   · ",
+      "·    ●           ●    ·",   // глаза
+      "·                     ·",
+      " ·    \\         /    · ",
+      "  ·    \\_______/    ·  ",   // улыбка (дуга)
+      "   ·  ·  ·  ·  ·  ·   "    // низ
     ];
 
     const pre = document.createElement('pre');
@@ -629,18 +615,16 @@
     termBody.appendChild(pre);
     termBody.scrollTop = termBody.scrollHeight;
 
-    // печатаем снизу вверх => берём массив в обратном порядке
-    let idx = bottomUpLines.length - 1;
+    // печатаем снизу вверх: начинаем с последней строки массива
+    let idx = lines.length - 1;
+
     function step(){
       if (idx < 0) return;
       const span = document.createElement('span');
       span.className = 'ln';
-      span.textContent = bottomUpLines[idx] + "\n";
-      pre.appendChild(span);
-      // вставляем в НАЧАЛО, чтобы визуально строки шли снизу вверх
+      span.textContent = lines[idx] + "\n";
+      // вставляем в начало pre, чтобы визуально шло снизу вверх
       pre.insertBefore(span, pre.firstChild);
-      // но чтобы порядок был снизу-вверх, добавляем в начало
-      // (строка с индексом length-1 = низ, поэтому вставляем первой)
       termBody.scrollTop = termBody.scrollHeight;
       idx--;
       typingTimers.push(setTimeout(step, 220));
