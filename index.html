@@ -30,9 +30,7 @@
     font-weight:400;font-size:clamp(28px,8vw,48px);
     letter-spacing:.08em;margin:0 0 32px;text-transform:lowercase;
   }
-  #cmdWrap{
-    width:min(520px,100%);
-  }
+  #cmdWrap{width:min(520px,100%);}
   #cmdInput{
     width:100%;
     padding:18px 16px;
@@ -48,12 +46,8 @@
     letter-spacing:.04em;
     transition:box-shadow .2s;
   }
-  #cmdInput::placeholder{
-    color:#555;font-weight:300;opacity:1;
-  }
-  #cmdInput:focus{
-    box-shadow:0 0 0 3px rgba(0,0,0,.08);
-  }
+  #cmdInput::placeholder{color:#555;font-weight:300;opacity:1;}
+  #cmdInput:focus{box-shadow:0 0 0 3px rgba(0,0,0,.08);}
 
   /* ---------- Слой 2: затемнение + квадратики ---------- */
   #hackFill{
@@ -101,7 +95,7 @@
     position:relative;
     overflow:hidden;
   }
-  /* «зелёные пиксельные бока» — вертикальные полосы-пиксели */
+  /* «зелёные пиксельные бока» */
   .termFrame::before,
   .termFrame::after{
     content:"";
@@ -118,7 +112,7 @@
   .termFrame::before{left:0;box-shadow:2px 0 8px rgba(57,255,20,.25);}
   .termFrame::after{right:0;box-shadow:-2px 0 8px rgba(57,255,20,.25);}
 
-  /* верхняя «палка» с троеточием */
+  /* верхняя «палка» (без мигающих точек) */
   .termTopBar{
     height:34px;flex:0 0 auto;
     border-bottom:1px solid rgba(57,255,20,.35);
@@ -129,18 +123,6 @@
   .termTopBar .barLine{
     position:absolute;left:18px;right:18px;top:50%;
     height:2px;background:rgba(57,255,20,.35);transform:translateY(-50%);
-  }
-  .termTopBar .dots{
-    position:relative;margin:0 auto;
-    font-size:20px;line-height:1;color:var(--green);
-    letter-spacing:4px;
-    animation:dotsBlink 1.2s steps(2,start) infinite;
-    background:var(--panel);
-    padding:0 8px;
-  }
-  @keyframes dotsBlink{
-    0%,49%{opacity:1;}
-    50%,100%{opacity:.25;}
   }
 
   /* лента сообщений */
@@ -169,6 +151,19 @@
   }
   @keyframes msgIn{to{opacity:1;transform:none;}}
 
+  /* комплимент в форме цитаты */
+  .quote{
+    margin:0 0 16px;
+    padding:10px 14px;
+    border-left:3px solid rgba(57,255,20,.8);
+    background:rgba(57,255,20,.05);
+    color:var(--green);
+    text-shadow:0 0 4px rgba(57,255,20,.55);
+    opacity:0;
+    animation:msgIn .45s ease forwards;
+    white-space:pre-wrap;
+  }
+
   .photoBlock{
     margin:14px 0 22px;
     position:relative;
@@ -181,14 +176,49 @@
     background:#000;padding:0 6px;
     font-size:11px;color:var(--green);
     opacity:.85;
+    z-index:2;
   }
   .photoBlock img{
     display:block;width:100%;height:auto;
     max-height:60vh;object-fit:contain;
     background:#0a0a0a;
   }
+  /* фото Funny повёрнуто на 90° (низ справа, верх слева) */
+  .photoBlock img.rot90{
+    transform:rotate(90deg);
+    transform-origin:center center;
+    max-height:none;
+    width:auto;
+    max-width:60vh;
+    margin:0 auto;
+  }
+  .photoBlock.rotWrap{
+    display:flex;align-items:center;justify-content:center;
+    overflow:hidden;
+    min-height:60vh;
+  }
   .photoBlock.loading{border-color:rgba(57,255,20,.35);}
   .photoBlock.done{border-color:var(--green);box-shadow:0 0 10px rgba(57,255,20,.35);}
+
+  /* смайлик снизу вверх */
+  .smiley{
+    margin:24px auto 8px;
+    display:block;
+    color:var(--green);
+    font-size:clamp(10px,2.6vw,14px);
+    line-height:1;
+    text-align:center;
+    white-space:pre;
+    font-family:"Courier New",monospace;
+    text-shadow:0 0 6px rgba(57,255,20,.6);
+  }
+  .smiley .ln{
+    display:block;
+    opacity:0;
+    transform:translateY(6px);
+    animation:smileyLine .18s ease forwards;
+  }
+  @keyframes smileyLine{to{opacity:1;transform:none;}}
 
   /* нижние кнопки */
   .termActions{
@@ -227,7 +257,6 @@
   }
   .hbtn.hidden{display:none;}
 
-  /* финальное затемнение для «Выйти» */
   #blackout{
     position:fixed;inset:0;background:#000;z-index:500;
     opacity:0;pointer-events:none;transition:opacity .4s ease;
@@ -259,7 +288,6 @@
   <div class="termFrame">
     <div class="termTopBar">
       <span class="barLine"></span>
-      <span class="dots">...</span>
     </div>
     <div class="termBody" id="termBody"></div>
     <div class="termActions">
@@ -276,7 +304,10 @@
 (function(){
   "use strict";
 
-  const CODE = "23102025_007";
+  const CODES = {
+    "23102025_007": "greeting",
+    "3010201207062012": "compliments"
+  };
 
   const startScreen = document.getElementById('startScreen');
   const cmdInput    = document.getElementById('cmdInput');
@@ -292,34 +323,31 @@
     beautiful:  "https://rruslan007.github.io/novara-city-images/DR/Beautiful.heic",
     beautiful2: "https://rruslan007.github.io/novara-city-images/DR/Beautiful_2.heic",
     funny:      "https://rruslan007.github.io/novara-city-images/DR/Funny.JPG",
-    para:       "https://rruslan007.github.io/novara-city-images/DR/Para.heic",
     haker:      "https://rruslan007.github.io/novara-city-images/DR/haker.JPG"
   };
 
-  let busy = false;          // блокировка от двойных срабатываний
-  let typingTimers = [];     // таймеры печати поздравления
-  let tileTimeouts = [];     // таймеры квадратиков
+  let busy = false;
+  let typingTimers = [];
+  let tileTimeouts = [];
+  let currentMode = "greeting";
 
   /* ---------- Ввод кода ---------- */
-  cmdInput.addEventListener('input', function(){
+  function checkCode(){
     if (busy) return;
-    if (cmdInput.value.trim() === CODE){
+    const val = cmdInput.value.trim();
+    if (CODES[val]){
       busy = true;
+      currentMode = CODES[val];
       cmdInput.blur();
-      cmdInput.value = CODE;
+      cmdInput.value = val;
       runIntroSequence();
     }
-  });
-  // на всякий случай: если вставили/автозаполнили
-  cmdInput.addEventListener('change', function(){
-    if (!busy && cmdInput.value.trim() === CODE){
-      busy = true; cmdInput.blur(); runIntroSequence();
-    }
-  });
+  }
+  cmdInput.addEventListener('input', checkCode);
+  cmdInput.addEventListener('change', checkCode);
 
   /* ---------- Сценарий входа ---------- */
   function runIntroSequence(){
-    // 1. экран затемняется до чёрного
     startScreen.style.opacity = '0';
     setTimeout(function(){
       startScreen.style.display = 'none';
@@ -334,9 +362,7 @@
 
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    // размер плитки адаптивный, чтобы получилось около 1000 штук
     let tileSize = Math.max(18, Math.round(Math.sqrt((vw * vh) / 1000)));
-    // ограничим, чтобы на телефоне не было микроскопических
     tileSize = Math.min(tileSize, Math.max(18, Math.round(Math.min(vw, vh) / 8)));
 
     const cols = Math.ceil(vw / tileSize) + 1;
@@ -353,7 +379,6 @@
         t.style.top  = (r * tileSize) + 'px';
         t.style.width  = (tileSize - 2) + 'px';
         t.style.height = (tileSize - 2) + 'px';
-        // лёгкое случайное смещение «друг на друге»
         t.style.zIndex = String(1 + ((r * 7 + c * 3) % 5));
         frag.appendChild(t);
         tiles.push(t);
@@ -361,9 +386,7 @@
     }
     hackFill.appendChild(frag);
 
-    // «сначала чисто 1 фотка» — центральная плитка с картинкой
-    const centerIndex =
-      Math.floor(rows / 2) * cols + Math.floor(cols / 2);
+    const centerIndex = Math.floor(rows / 2) * cols + Math.floor(cols / 2);
     const centerTile = tiles[centerIndex];
     if (centerTile){
       const img = document.createElement('img');
@@ -375,10 +398,7 @@
       centerTile.style.zIndex = '20';
     }
 
-    // затем быстро заполняем остальные случайными «хакерскими» квадратиками
-    // ~1000 плиток, но анимируем порциями, чтобы не убить телефон
     const order = tiles.map((t, i) => i).filter(i => i !== centerIndex);
-    // перемешаем
     for (let i = order.length - 1; i > 0; i--){
       const j = Math.floor(Math.random() * (i + 1));
       [order[i], order[j]] = [order[j], order[i]];
@@ -389,17 +409,13 @@
 
     function nextBatch(){
       if (cursor >= order.length){
-        // всё заполнено -> гасим до чёрного и показываем терминал
-        tileTimeouts.push(setTimeout(function(){
-          fadeToTerminal();
-        }, 550));
+        tileTimeouts.push(setTimeout(fadeToTerminal, 550));
         return;
       }
       const end = Math.min(cursor + BATCH, order.length);
       for (let k = cursor; k < end; k++){
         const t = tiles[order[k]];
         if (!t) continue;
-        // часть плиток — с той же фоткой, часть — просто зелёная «матрица»
         if (Math.random() < 0.12){
           const im = document.createElement('img');
           im.src = IMG.haker;
@@ -415,7 +431,6 @@
   }
 
   function fadeToTerminal(){
-    // экран гаснет до полностью чёрного
     hackFill.style.transition = 'opacity .6s ease';
     hackFill.style.opacity = '0';
     setTimeout(function(){
@@ -423,7 +438,6 @@
       hackFill.innerHTML = '';
       hackFill.style.opacity = '';
       hackFill.style.transition = '';
-      // растемняется в окне хакера
       openTerminal();
     }, 620);
   }
@@ -434,62 +448,113 @@
     btnStart.classList.remove('hidden');
     btnExit.classList.add('hidden');
     btnReset.classList.add('hidden');
+    btnStart.dataset.running = '';
     terminal.classList.add('show');
   }
 
-  function clearTimers(){
+  function clearTyping(){
     typingTimers.forEach(clearTimeout);
     typingTimers = [];
-    tileTimeouts.forEach(clearTimeout);
-    tileTimeouts = [];
   }
 
-  /* ---------- Кнопка СТАРТ: печать поздравления ---------- */
+  /* ---------- Кнопка СТАРТ ---------- */
   btnStart.addEventListener('click', function(){
-    if (busy && btnStart.dataset.running === '1') return;
+    if (btnStart.dataset.running === '1') return;
     btnStart.dataset.running = '1';
     btnStart.classList.add('hidden');
     btnExit.classList.remove('hidden');
     btnReset.classList.remove('hidden');
-
     termBody.innerHTML = '';
-    printGreeting();
+
+    if (currentMode === "compliments"){
+      printCompliments();
+    } else {
+      printGreeting();
+    }
   });
 
+  /* ---------- Режим 1: поздравление (медленнее, x0.5) ---------- */
   const GREETING = [
-    {type:'text', text:"С днём рождения, самая лучшая подруга!)"},
-    {type:'text', text:"Желаю тебе крепкого здоровья, благополучия, моря счастья. Оставайся такой же красоткой.", photo:'beautiful2', alt:'beautiful2'},
-    {type:'text', text:"Желаю тебе быть очень внимательной и аккуратной, а не как эти голубчики, которых я уже раз 500 успел сфоткать.", photo:'para', alt:'para'},
-    {type:'text', text:"Желаю тебе всегда быть на позитиве, как девочка на переднем плане, а не как «злой пацан» на заднем плане.", photo:'funny', alt:'funny'},
-    {type:'text', text:"Ну и напоследок: будь всегда уверенной в себе, пусть улыбка всегда остаётся на твоём лице, пусть тебя окружают только верные люди. Желаю тебе учиться на одни пятёрки, кучу-прекучу подарков, слушаться взрослых и не капризничать. Желаю обходить все преграды, чтобы все твои желания всегда исполнялись. Оставайся такой же красоткой и моим львёнком. С днём рождения, подруга, люблю тебя!)", photo:'beautiful', alt:'beautiful'}
+    {text:"С днём рождения, самая лучшая подруга!)"},
+    {text:"Желаю тебе крепкого здоровья, благополучия, моря счастья. Оставайся такой же красоткой.", photo:'beautiful2', alt:'beautiful2'},
+    {text:"Желаю тебе всегда быть на позитиве, как девочка на переднем плане, а не как «злой пацан» на заднем плане.", photo:'funny', alt:'funny', rot:true},
+    {text:"Ну и напоследок: будь всегда уверенной в себе, пусть улыбка всегда остаётся на твоём лице, пусть тебя окружают только верные люди. Желаю тебе учиться на одни пятёрки, кучу-прекучу подарков, слушаться взрослых и не капризничать. Желаю обходить все преграды, чтобы все твои желания всегда исполнялись. Оставайся такой же красоткой и моим львёнком. С днём рождения, подруга, люблю тебя!)", photo:'beautiful', alt:'beautiful'}
   ];
 
+  // скорость печати x0.5 => интервалы увеличены
   function printGreeting(){
-    let delay = 250;
+    let delay = 500;
     GREETING.forEach(function(block){
       typingTimers.push(setTimeout(function(){
-        addTextMessage(block.text);
-        if (block.photo){
-          typingTimers.push(setTimeout(function(){
-            addPhoto(block.photo, block.alt);
-          }, 380));
-        }
+        typeTextMessage(block.text, 30, function(){
+          if (block.photo){
+            typingTimers.push(setTimeout(function(){
+              addPhoto(block.photo, block.alt, block.rot);
+            }, 700));
+          }
+        });
       }, delay));
-      delay += 1500;
+      delay += 3000;
     });
+    // смайлик в конце
+    typingTimers.push(setTimeout(drawSmiley, delay + 1200));
   }
 
-  function addTextMessage(text){
+  // посимвольная печать (медленно)
+  function typeTextMessage(text, charDelay, done){
     const p = document.createElement('p');
     p.className = 'msg';
-    p.textContent = '> ' + text;
+    p.textContent = '> ';
     termBody.appendChild(p);
-    termBody.scrollTop = termBody.scrollHeight;
+    let i = 0;
+    function tick(){
+      if (i >= text.length){
+        if (done) done();
+        return;
+      }
+      p.textContent += text.charAt(i);
+      i++;
+      termBody.scrollTop = termBody.scrollHeight;
+      typingTimers.push(setTimeout(tick, charDelay));
+    }
+    tick();
   }
 
-  function addPhoto(key, alt){
+  /* ---------- Режим 2: 10 комплиментов-цитат ---------- */
+  const COMPLIMENTS = [
+    "«У тебя невероятная красота — она светится изнутри.»",
+    "«У тебя самый добрый характер — с тобой тепло и спокойно.»",
+    "«В тебе есть милая хитрость, которая делает тебя обворожительной.»",
+    "«Твоё флиртование — это отдельный вид искусства.»",
+    "«Ты — чистая радость, которая заряжает всех вокруг.»",
+    "«Твоя логика всегда на высоте — с тобой не пропадёшь.»",
+    "«Твоя привлекательность — это не только внешность, но и энергия.»",
+    "«Ты невероятно милая — это твоя суперсила.»",
+    "«С тобой всегда весело — ты умеешь зажечь любой день.»",
+    "«С тобой так хорошо проводить время, что часы пролетают незаметно.»"
+  ];
+
+  function printCompliments(){
+    let delay = 300;
+    COMPLIMENTS.forEach(function(text){
+      typingTimers.push(setTimeout(function(){
+        const q = document.createElement('div');
+        q.className = 'quote';
+        q.textContent = text;
+        termBody.appendChild(q);
+        termBody.scrollTop = termBody.scrollHeight;
+      }, delay));
+      // медленно (x0.5)
+      delay += 1400;
+    });
+    typingTimers.push(setTimeout(drawSmiley, delay + 800));
+  }
+
+  /* ---------- Фото с зелёной рамкой и прогрессом ---------- */
+  function addPhoto(key, alt, rot){
     const wrap = document.createElement('div');
     wrap.className = 'photoBlock loading';
+    if (rot) wrap.classList.add('rotWrap');
 
     const status = document.createElement('span');
     status.className = 'photoStatus';
@@ -498,9 +563,8 @@
     const img = document.createElement('img');
     img.alt = alt || '';
     img.loading = 'lazy';
+    if (rot) img.classList.add('rot90');
 
-    // Прогресс загрузки: где браузер даёт события — используем их,
-    // иначе плавно «догоняем» до 100% после onload.
     let progress = 0;
     let fakeTimer = null;
     let finished = false;
@@ -508,7 +572,6 @@
     function setProgress(v){
       progress = Math.max(progress, Math.min(100, v));
       status.textContent = Math.round(progress) + '%';
-      // зелёная рамка усиливается по мере загрузки
       const alpha = (0.25 + (progress / 100) * 0.75).toFixed(2);
       wrap.style.borderColor = 'rgba(57,255,20,' + alpha + ')';
       wrap.style.boxShadow = progress >= 100
@@ -527,17 +590,15 @@
 
     img.addEventListener('load', finish, {once:true});
     img.addEventListener('error', function(){
-      // даже при ошибке закрываем рамку, чтобы не висело
       finish();
       status.textContent = 'ERR';
     }, {once:true});
 
-    // плавный фейковый прогресс, пока нет событий
     let fake = 0;
     fakeTimer = setInterval(function(){
       if (finished) return;
       fake += Math.random() * 9 + 2;
-      if (fake >= 92) fake = 92; // ждём реального onload до 100%
+      if (fake >= 92) fake = 92;
       setProgress(fake);
     }, 180);
 
@@ -550,12 +611,47 @@
     termBody.scrollTop = termBody.scrollHeight;
   }
 
+  /* ---------- Смайлик из точек снизу вверх ---------- */
+  function drawSmiley(){
+    // простая ASCII-улыбка, рисуем построчно СНИЗУ ВВЕРХ
+    // строки заданы так, что последняя строка массива — верхняя
+    const bottomUpLines = [
+      "   ·  ·  ·  ·  ·   ",      // низ (дуга улыбки)
+      "  ·             ·  ",
+      " ·    ●     ●    · ",      // глаза
+      " ·               · ",
+      "  ·             ·  ",
+      "   ·  ·  ·  ·  ·   "       // верх (замыкание контура)
+    ];
+
+    const pre = document.createElement('pre');
+    pre.className = 'smiley';
+    termBody.appendChild(pre);
+    termBody.scrollTop = termBody.scrollHeight;
+
+    // печатаем снизу вверх => берём массив в обратном порядке
+    let idx = bottomUpLines.length - 1;
+    function step(){
+      if (idx < 0) return;
+      const span = document.createElement('span');
+      span.className = 'ln';
+      span.textContent = bottomUpLines[idx] + "\n";
+      pre.appendChild(span);
+      // вставляем в НАЧАЛО, чтобы визуально строки шли снизу вверх
+      pre.insertBefore(span, pre.firstChild);
+      // но чтобы порядок был снизу-вверх, добавляем в начало
+      // (строка с индексом length-1 = низ, поэтому вставляем первой)
+      termBody.scrollTop = termBody.scrollHeight;
+      idx--;
+      typingTimers.push(setTimeout(step, 220));
+    }
+    step();
+  }
+
   /* ---------- Выйти ---------- */
   btnExit.addEventListener('click', function(){
-    // экран затемняется на секунду и возвращается в поле команд
     blackout.classList.add('active');
-    typingTimers.forEach(clearTimeout);
-    typingTimers = [];
+    clearTyping();
     setTimeout(function(){
       terminal.classList.remove('show');
       termBody.innerHTML = '';
@@ -564,9 +660,7 @@
       btnExit.classList.add('hidden');
       btnReset.classList.add('hidden');
 
-      // возвращаем стартовый белый экран
       startScreen.style.display = 'flex';
-      // принудительный reflow для transition
       void startScreen.offsetWidth;
       startScreen.style.opacity = '1';
       cmdInput.value = '';
@@ -578,8 +672,7 @@
 
   /* ---------- Сбросить ---------- */
   btnReset.addEventListener('click', function(){
-    typingTimers.forEach(clearTimeout);
-    typingTimers = [];
+    clearTyping();
     termBody.innerHTML = '';
     btnStart.dataset.running = '';
     btnStart.classList.remove('hidden');
@@ -589,16 +682,13 @@
   });
 
   /* ---------- Мелочи ---------- */
-  // страховка от «прокрутки» страницы на телефоне
   document.addEventListener('touchmove', function(e){
     if (e.target.closest('.termBody')) return;
     if (e.touches.length > 1) e.preventDefault();
   }, {passive:false});
 
-  // не даём клавиатуре «ломать» первый экран
   window.addEventListener('resize', function(){
     if (document.activeElement === cmdInput){
-      // принудительно держим поле в кадре
       setTimeout(function(){ cmdInput.scrollIntoView({block:'center'}); }, 50);
     }
   });
