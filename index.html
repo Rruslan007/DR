@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>команда</title>
+<style>
+  :root{
+    --green:#39ff14;
+    --green-dim:#1c8a0e;
+    --black:#000;
+    --panel:#050805;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;padding:0;width:100%;height:100%;
+    background:#fff;color:#000;
+    font-family:"Courier New",Consolas,monospace;
+    overflow:hidden;
+  }
+  body{position:relative;}
+
+  /* ---------- Слой 1: белый стартовый экран ---------- */
+  #startScreen{
+    position:fixed;inset:0;background:#fff;z-index:100;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:24px;transition:opacity .4s ease;
+  }
+  #startScreen h1{
+    font-weight:400;font-size:clamp(28px,8vw,48px);
+    letter-spacing:.08em;margin:0 0 32px;text-transform:lowercase;
+  }
+  #cmdWrap{
+    width:min(520px,100%);
+  }
+  #cmdInput{
+    width:100%;
+    padding:18px 16px;
+    font-size:clamp(15px,4.2vw,18px);
+    font-weight:300;
+    font-family:inherit;
+    color:#000;
+    background:#fff;
+    border:2px solid #000;
+    border-radius:0;
+    outline:none;
+    text-align:center;
+    letter-spacing:.04em;
+    transition:box-shadow .2s;
+  }
+  #cmdInput::placeholder{
+    color:#555;font-weight:300;opacity:1;
+  }
+  #cmdInput:focus{
+    box-shadow:0 0 0 3px rgba(0,0,0,.08);
+  }
+
+  /* ---------- Слой 2: затемнение + квадратики ---------- */
+  #hackFill{
+    position:fixed;inset:0;z-index:200;
+    background:#000;
+    opacity:0;pointer-events:none;
+    transition:opacity .6s ease;
+  }
+  #hackFill.active{opacity:1;pointer-events:auto;}
+  #hackFill .tile{
+    position:absolute;
+    background:#0a1a08;
+    border:1px solid rgba(57,255,20,.35);
+    box-shadow:0 0 6px rgba(57,255,20,.15) inset;
+    overflow:hidden;
+    animation:tilePulse 3s infinite alternate;
+  }
+  #hackFill .tile img{
+    width:100%;height:100%;object-fit:cover;display:block;
+    opacity:.55;filter:grayscale(1) contrast(1.4) brightness(.7) sepia(.2) hue-rotate(70deg);
+  }
+  @keyframes tilePulse{
+    0%{box-shadow:0 0 4px rgba(57,255,20,.12) inset;}
+    100%{box-shadow:0 0 10px rgba(57,255,20,.4) inset;}
+  }
+
+  /* ---------- Слой 3: терминальное окно ---------- */
+  #terminal{
+    position:fixed;inset:0;z-index:300;
+    background:#000;
+    display:none;
+    padding:14px;
+    opacity:0;
+    transition:opacity .7s ease;
+  }
+  #terminal.show{display:flex;opacity:1;align-items:center;justify-content:center;}
+
+  .termFrame{
+    width:100%;height:100%;
+    max-width:900px;max-height:100%;
+    background:var(--panel);
+    border:2px solid var(--green);
+    box-shadow:0 0 12px rgba(57,255,20,.5), 0 0 40px rgba(57,255,20,.15) inset;
+    display:flex;flex-direction:column;
+    position:relative;
+    overflow:hidden;
+  }
+  /* «зелёные пиксельные бока» — вертикальные полосы-пиксели */
+  .termFrame::before,
+  .termFrame::after{
+    content:"";
+    position:absolute;top:0;bottom:0;width:14px;
+    background-image:
+      repeating-linear-gradient(
+        to bottom,
+        var(--green) 0 4px,
+        transparent 4px 8px
+      );
+    opacity:.55;
+    pointer-events:none;
+  }
+  .termFrame::before{left:0;box-shadow:2px 0 8px rgba(57,255,20,.25);}
+  .termFrame::after{right:0;box-shadow:-2px 0 8px rgba(57,255,20,.25);}
+
+  /* верхняя «палка» с троеточием */
+  .termTopBar{
+    height:34px;flex:0 0 auto;
+    border-bottom:1px solid rgba(57,255,20,.35);
+    display:flex;align-items:center;
+    padding:0 18px;
+    position:relative;
+  }
+  .termTopBar .barLine{
+    position:absolute;left:18px;right:18px;top:50%;
+    height:2px;background:rgba(57,255,20,.35);transform:translateY(-50%);
+  }
+  .termTopBar .dots{
+    position:relative;margin:0 auto;
+    font-size:20px;line-height:1;color:var(--green);
+    letter-spacing:4px;
+    animation:dotsBlink 1.2s steps(2,start) infinite;
+    background:var(--panel);
+    padding:0 8px;
+  }
+  @keyframes dotsBlink{
+    0%,49%{opacity:1;}
+    50%,100%{opacity:.25;}
+  }
+
+  /* лента сообщений */
+  .termBody{
+    flex:1 1 auto;
+    overflow-y:auto;
+    padding:16px 22px 24px;
+    color:var(--green);
+    font-size:clamp(13px,3.6vw,16px);
+    line-height:1.55;
+    text-shadow:0 0 4px rgba(57,255,20,.55);
+    scrollbar-width:thin;
+    scrollbar-color:var(--green) #000;
+  }
+  .termBody::-webkit-scrollbar{width:6px;}
+  .termBody::-webkit-scrollbar-thumb{background:var(--green);}
+  .termBody::-webkit-scrollbar-track{background:#000;}
+
+  .msg{
+    margin:0 0 18px;
+    white-space:pre-wrap;
+    word-break:break-word;
+    opacity:0;
+    transform:translateY(6px);
+    animation:msgIn .45s ease forwards;
+  }
+  @keyframes msgIn{to{opacity:1;transform:none;}}
+
+  .photoBlock{
+    margin:14px 0 22px;
+    position:relative;
+    border:2px solid rgba(57,255,20,.3);
+    padding:4px;
+    background:#000;
+  }
+  .photoBlock .photoStatus{
+    position:absolute;top:-10px;right:8px;
+    background:#000;padding:0 6px;
+    font-size:11px;color:var(--green);
+    opacity:.85;
+  }
+  .photoBlock img{
+    display:block;width:100%;height:auto;
+    max-height:60vh;object-fit:contain;
+    background:#0a0a0a;
+  }
+  .photoBlock.loading{border-color:rgba(57,255,20,.35);}
+  .photoBlock.done{border-color:var(--green);box-shadow:0 0 10px rgba(57,255,20,.35);}
+
+  /* нижние кнопки */
+  .termActions{
+    flex:0 0 auto;
+    display:flex;gap:10px;
+    padding:12px 18px 16px;
+    border-top:1px solid rgba(57,255,20,.35);
+    background:#020402;
+  }
+  .hbtn{
+    flex:1 1 0;
+    border:none;
+    font-family:inherit;
+    font-size:clamp(13px,3.8vw,16px);
+    font-weight:700;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    padding:14px 10px;
+    border-radius:2px;
+    cursor:pointer;
+    transition:transform .12s ease, filter .2s ease, opacity .3s;
+    user-select:none;
+  }
+  .hbtn:active{transform:scale(.97);}
+  .hbtn.start{
+    background:#f5c400;color:#000;
+    box-shadow:0 0 14px rgba(245,196,0,.45);
+  }
+  .hbtn.reset{
+    background:#f5c400;color:#000;
+    box-shadow:0 0 12px rgba(245,196,0,.4);
+  }
+  .hbtn.exit{
+    background:#d21b1b;color:#fff;
+    box-shadow:0 0 12px rgba(210,27,27,.45);
+  }
+  .hbtn.hidden{display:none;}
+
+  /* финальное затемнение для «Выйти» */
+  #blackout{
+    position:fixed;inset:0;background:#000;z-index:500;
+    opacity:0;pointer-events:none;transition:opacity .4s ease;
+  }
+  #blackout.active{opacity:1;pointer-events:auto;}
+
+  @media (max-width:420px){
+    .termBody{padding:12px 16px 20px;}
+    .termActions{padding:10px 12px 14px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== 1. Стартовый экран ===== -->
+<div id="startScreen">
+  <h1>команда</h1>
+  <div id="cmdWrap">
+    <input id="cmdInput" type="text" inputmode="text" autocomplete="off"
+           spellcheck="false" placeholder="Напишите команду">
+  </div>
+</div>
+
+<!-- ===== 2. Заполнение экрана квадратиками ===== -->
+<div id="hackFill"></div>
+
+<!-- ===== 3. Терминал ===== -->
+<div id="terminal">
+  <div class="termFrame">
+    <div class="termTopBar">
+      <span class="barLine"></span>
+      <span class="dots">...</span>
+    </div>
+    <div class="termBody" id="termBody"></div>
+    <div class="termActions">
+      <button class="hbtn start" id="btnStart">старт</button>
+      <button class="hbtn exit hidden" id="btnExit">выйти</button>
+      <button class="hbtn reset hidden" id="btnReset">сбросить</button>
+    </div>
+  </div>
+</div>
+
+<div id="blackout"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  const CODE = "23102025_007";
+
+  const startScreen = document.getElementById('startScreen');
+  const cmdInput    = document.getElementById('cmdInput');
+  const hackFill    = document.getElementById('hackFill');
+  const terminal    = document.getElementById('terminal');
+  const termBody    = document.getElementById('termBody');
+  const btnStart    = document.getElementById('btnStart');
+  const btnExit     = document.getElementById('btnExit');
+  const btnReset    = document.getElementById('btnReset');
+  const blackout    = document.getElementById('blackout');
+
+  const IMG = {
+    beautiful:  "https://rruslan007.github.io/novara-city-images/DR/Beautiful.heic",
+    beautiful2: "https://rruslan007.github.io/novara-city-images/DR/Beautiful_2.heic",
+    funny:      "https://rruslan007.github.io/novara-city-images/DR/Funny.JPG",
+    para:       "https://rruslan007.github.io/novara-city-images/DR/Para.heic",
+    haker:      "https://rruslan007.github.io/novara-city-images/DR/haker.JPG"
+  };
+
+  let busy = false;          // блокировка от двойных срабатываний
+  let typingTimers = [];     // таймеры печати поздравления
+  let tileTimeouts = [];     // таймеры квадратиков
+
+  /* ---------- Ввод кода ---------- */
+  cmdInput.addEventListener('input', function(){
+    if (busy) return;
+    if (cmdInput.value.trim() === CODE){
+      busy = true;
+      cmdInput.blur();
+      cmdInput.value = CODE;
+      runIntroSequence();
+    }
+  });
+  // на всякий случай: если вставили/автозаполнили
+  cmdInput.addEventListener('change', function(){
+    if (!busy && cmdInput.value.trim() === CODE){
+      busy = true; cmdInput.blur(); runIntroSequence();
+    }
+  });
+
+  /* ---------- Сценарий входа ---------- */
+  function runIntroSequence(){
+    // 1. экран затемняется до чёрного
+    startScreen.style.opacity = '0';
+    setTimeout(function(){
+      startScreen.style.display = 'none';
+      fillWithTiles();
+    }, 420);
+  }
+
+  /* ---------- ~1000 квадратиков ---------- */
+  function fillWithTiles(){
+    hackFill.innerHTML = '';
+    hackFill.classList.add('active');
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    // размер плитки адаптивный, чтобы получилось около 1000 штук
+    let tileSize = Math.max(18, Math.round(Math.sqrt((vw * vh) / 1000)));
+    // ограничим, чтобы на телефоне не было микроскопических
+    tileSize = Math.min(tileSize, Math.max(18, Math.round(Math.min(vw, vh) / 8)));
+
+    const cols = Math.ceil(vw / tileSize) + 1;
+    const rows = Math.ceil(vh / tileSize) + 1;
+
+    const frag = document.createDocumentFragment();
+    const tiles = [];
+
+    for (let r = 0; r < rows; r++){
+      for (let c = 0; c < cols; c++){
+        const t = document.createElement('div');
+        t.className = 'tile';
+        t.style.left = (c * tileSize) + 'px';
+        t.style.top  = (r * tileSize) + 'px';
+        t.style.width  = (tileSize - 2) + 'px';
+        t.style.height = (tileSize - 2) + 'px';
+        // лёгкое случайное смещение «друг на друге»
+        t.style.zIndex = String(1 + ((r * 7 + c * 3) % 5));
+        frag.appendChild(t);
+        tiles.push(t);
+      }
+    }
+    hackFill.appendChild(frag);
+
+    // «сначала чисто 1 фотка» — центральная плитка с картинкой
+    const centerIndex =
+      Math.floor(rows / 2) * cols + Math.floor(cols / 2);
+    const centerTile = tiles[centerIndex];
+    if (centerTile){
+      const img = document.createElement('img');
+      img.src = IMG.haker;
+      img.alt = '';
+      img.style.objectFit = 'cover';
+      centerTile.appendChild(img);
+      centerTile.style.borderColor = 'var(--green)';
+      centerTile.style.zIndex = '20';
+    }
+
+    // затем быстро заполняем остальные случайными «хакерскими» квадратиками
+    // ~1000 плиток, но анимируем порциями, чтобы не убить телефон
+    const order = tiles.map((t, i) => i).filter(i => i !== centerIndex);
+    // перемешаем
+    for (let i = order.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+
+    const BATCH = Math.max(40, Math.ceil(order.length / 14));
+    let cursor = 0;
+
+    function nextBatch(){
+      if (cursor >= order.length){
+        // всё заполнено -> гасим до чёрного и показываем терминал
+        tileTimeouts.push(setTimeout(function(){
+          fadeToTerminal();
+        }, 550));
+        return;
+      }
+      const end = Math.min(cursor + BATCH, order.length);
+      for (let k = cursor; k < end; k++){
+        const t = tiles[order[k]];
+        if (!t) continue;
+        // часть плиток — с той же фоткой, часть — просто зелёная «матрица»
+        if (Math.random() < 0.12){
+          const im = document.createElement('img');
+          im.src = IMG.haker;
+          t.appendChild(im);
+        } else {
+          t.style.background = 'rgba(10,40,8,' + (0.35 + Math.random() * 0.5).toFixed(2) + ')';
+        }
+      }
+      cursor = end;
+      tileTimeouts.push(setTimeout(nextBatch, 45));
+    }
+    nextBatch();
+  }
+
+  function fadeToTerminal(){
+    // экран гаснет до полностью чёрного
+    hackFill.style.transition = 'opacity .6s ease';
+    hackFill.style.opacity = '0';
+    setTimeout(function(){
+      hackFill.classList.remove('active');
+      hackFill.innerHTML = '';
+      hackFill.style.opacity = '';
+      hackFill.style.transition = '';
+      // растемняется в окне хакера
+      openTerminal();
+    }, 620);
+  }
+
+  /* ---------- Терминал ---------- */
+  function openTerminal(){
+    termBody.innerHTML = '';
+    btnStart.classList.remove('hidden');
+    btnExit.classList.add('hidden');
+    btnReset.classList.add('hidden');
+    terminal.classList.add('show');
+  }
+
+  function clearTimers(){
+    typingTimers.forEach(clearTimeout);
+    typingTimers = [];
+    tileTimeouts.forEach(clearTimeout);
+    tileTimeouts = [];
+  }
+
+  /* ---------- Кнопка СТАРТ: печать поздравления ---------- */
+  btnStart.addEventListener('click', function(){
+    if (busy && btnStart.dataset.running === '1') return;
+    btnStart.dataset.running = '1';
+    btnStart.classList.add('hidden');
+    btnExit.classList.remove('hidden');
+    btnReset.classList.remove('hidden');
+
+    termBody.innerHTML = '';
+    printGreeting();
+  });
+
+  const GREETING = [
+    {type:'text', text:"С днём рождения, самая лучшая подруга!)"},
+    {type:'text', text:"Желаю тебе крепкого здоровья, благополучия, моря счастья. Оставайся такой же красоткой.", photo:'beautiful2', alt:'beautiful2'},
+    {type:'text', text:"Желаю тебе быть очень внимательной и аккуратной, а не как эти голубчики, которых я уже раз 500 успел сфоткать.", photo:'para', alt:'para'},
+    {type:'text', text:"Желаю тебе всегда быть на позитиве, как девочка на переднем плане, а не как «злой пацан» на заднем плане.", photo:'funny', alt:'funny'},
+    {type:'text', text:"Ну и напоследок: будь всегда уверенной в себе, пусть улыбка всегда остаётся на твоём лице, пусть тебя окружают только верные люди. Желаю тебе учиться на одни пятёрки, кучу-прекучу подарков, слушаться взрослых и не капризничать. Желаю обходить все преграды, чтобы все твои желания всегда исполнялись. Оставайся такой же красоткой и моим львёнком. С днём рождения, подруга, люблю тебя!)", photo:'beautiful', alt:'beautiful'}
+  ];
+
+  function printGreeting(){
+    let delay = 250;
+    GREETING.forEach(function(block){
+      typingTimers.push(setTimeout(function(){
+        addTextMessage(block.text);
+        if (block.photo){
+          typingTimers.push(setTimeout(function(){
+            addPhoto(block.photo, block.alt);
+          }, 380));
+        }
+      }, delay));
+      delay += 1500;
+    });
+  }
+
+  function addTextMessage(text){
+    const p = document.createElement('p');
+    p.className = 'msg';
+    p.textContent = '> ' + text;
+    termBody.appendChild(p);
+    termBody.scrollTop = termBody.scrollHeight;
+  }
+
+  function addPhoto(key, alt){
+    const wrap = document.createElement('div');
+    wrap.className = 'photoBlock loading';
+
+    const status = document.createElement('span');
+    status.className = 'photoStatus';
+    status.textContent = '0%';
+
+    const img = document.createElement('img');
+    img.alt = alt || '';
+    img.loading = 'lazy';
+
+    // Прогресс загрузки: где браузер даёт события — используем их,
+    // иначе плавно «догоняем» до 100% после onload.
+    let progress = 0;
+    let fakeTimer = null;
+    let finished = false;
+
+    function setProgress(v){
+      progress = Math.max(progress, Math.min(100, v));
+      status.textContent = Math.round(progress) + '%';
+      // зелёная рамка усиливается по мере загрузки
+      const alpha = (0.25 + (progress / 100) * 0.75).toFixed(2);
+      wrap.style.borderColor = 'rgba(57,255,20,' + alpha + ')';
+      wrap.style.boxShadow = progress >= 100
+        ? '0 0 10px rgba(57,255,20,.35)'
+        : 'none';
+    }
+
+    function finish(){
+      if (finished) return;
+      finished = true;
+      if (fakeTimer){ clearInterval(fakeTimer); fakeTimer = null; }
+      setProgress(100);
+      wrap.classList.remove('loading');
+      wrap.classList.add('done');
+    }
+
+    img.addEventListener('load', finish, {once:true});
+    img.addEventListener('error', function(){
+      // даже при ошибке закрываем рамку, чтобы не висело
+      finish();
+      status.textContent = 'ERR';
+    }, {once:true});
+
+    // плавный фейковый прогресс, пока нет событий
+    let fake = 0;
+    fakeTimer = setInterval(function(){
+      if (finished) return;
+      fake += Math.random() * 9 + 2;
+      if (fake >= 92) fake = 92; // ждём реального onload до 100%
+      setProgress(fake);
+    }, 180);
+
+    setProgress(0);
+    img.src = IMG[key];
+
+    wrap.appendChild(status);
+    wrap.appendChild(img);
+    termBody.appendChild(wrap);
+    termBody.scrollTop = termBody.scrollHeight;
+  }
+
+  /* ---------- Выйти ---------- */
+  btnExit.addEventListener('click', function(){
+    // экран затемняется на секунду и возвращается в поле команд
+    blackout.classList.add('active');
+    typingTimers.forEach(clearTimeout);
+    typingTimers = [];
+    setTimeout(function(){
+      terminal.classList.remove('show');
+      termBody.innerHTML = '';
+      btnStart.dataset.running = '';
+      btnStart.classList.remove('hidden');
+      btnExit.classList.add('hidden');
+      btnReset.classList.add('hidden');
+
+      // возвращаем стартовый белый экран
+      startScreen.style.display = 'flex';
+      // принудительный reflow для transition
+      void startScreen.offsetWidth;
+      startScreen.style.opacity = '1';
+      cmdInput.value = '';
+      busy = false;
+
+      blackout.classList.remove('active');
+    }, 1000);
+  });
+
+  /* ---------- Сбросить ---------- */
+  btnReset.addEventListener('click', function(){
+    typingTimers.forEach(clearTimeout);
+    typingTimers = [];
+    termBody.innerHTML = '';
+    btnStart.dataset.running = '';
+    btnStart.classList.remove('hidden');
+    btnExit.classList.add('hidden');
+    btnReset.classList.add('hidden');
+    termBody.scrollTop = 0;
+  });
+
+  /* ---------- Мелочи ---------- */
+  // страховка от «прокрутки» страницы на телефоне
+  document.addEventListener('touchmove', function(e){
+    if (e.target.closest('.termBody')) return;
+    if (e.touches.length > 1) e.preventDefault();
+  }, {passive:false});
+
+  // не даём клавиатуре «ломать» первый экран
+  window.addEventListener('resize', function(){
+    if (document.activeElement === cmdInput){
+      // принудительно держим поле в кадре
+      setTimeout(function(){ cmdInput.scrollIntoView({block:'center'}); }, 50);
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
